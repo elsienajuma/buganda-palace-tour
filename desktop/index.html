@@ -181,8 +181,13 @@
         // with and the page stretches it to fit, which is invisible for the small height changes of the browser bar.
         // Turning the phone changes the shape too much for that, so then the page reloads cleanly instead.
         config.matchWebGLToCanvasSize = false;
-        canvas.width = Math.round(window.innerWidth * config.devicePixelRatio);
-        canvas.height = Math.round(window.innerHeight * config.devicePixelRatio);
+        // The drawing surface is sized from the box the page really gives the canvas (not from window.innerWidth/innerHeight, which
+        // on an iPhone can differ from it and left the picture stretched), so the shape of the picture matches the screen.
+        var canvasBox = canvas.getBoundingClientRect();
+        var surfaceWidth = canvasBox.width > 0 ? canvasBox.width : window.innerWidth;
+        var surfaceHeight = canvasBox.height > 0 ? canvasBox.height : window.innerHeight;
+        canvas.width = Math.round(surfaceWidth * config.devicePixelRatio);
+        canvas.height = Math.round(surfaceHeight * config.devicePixelRatio);
         var startedPortrait = window.innerHeight > window.innerWidth;
         window.addEventListener("resize", function () {
           if ((window.innerHeight > window.innerWidth) !== startedPortrait) {
