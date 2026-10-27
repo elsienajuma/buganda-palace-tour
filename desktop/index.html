@@ -343,9 +343,9 @@
         if (loadingFinished || lastProgress >= 0.85) { if (loadingFinished || slowMessageShown) clearInterval(slowCheck); return; }
         var seconds = (Date.now() - downloadStartedAt) / 1000;
         var projected = lastProgress > 0 ? seconds / lastProgress : Infinity;
-        if (seconds >= 10 && projected > 40 && !slowMessageShown) {
+        if (seconds >= 15 && projected > 40 && !slowMessageShown) {
           slowMessageShown = true;
-          holdMessage("Slow connection… hang tight. It's quicker next time.");
+          holdMessage("Slow connection… just a moment. It's quicker next time.");
         }
       }, 2000);
 
