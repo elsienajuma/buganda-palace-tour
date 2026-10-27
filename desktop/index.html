@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes">
+    <title>ENJU_ONLINE</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+      <!-- Vercel Web Analytics: counts visits when the page is hosted on Vercel (switch it on in the project's Analytics tab). It does nothing anywhere else. -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas" width=1400 height=788 tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-logo">TOUR:<br>The Buganda Palace of Mengo</div>
+        <div id="unity-loading-tagline">An ENJU Heritage tour</div>
+        <div id="unity-loading-subtitle">&nbsp;</div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+        <div id="unity-loading-percent">0%</div>
+        <!-- shown only while the connection is down, under the progress bar -->
+        <button id="unity-retry" class="enju-retry" type="button">
+          <svg viewBox="0 0 24 24" width="1.1em" height="1.1em" aria-hidden="true"><path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+          <span>Retry</span>
+        </button>
+      </div>
+      <!-- Always on the page, outside the game: choose the controls that suit the device being used. -->
+      <div id="enju-controls" title="Choose the controls that suit your device">
+        <button id="enju-controls-touch" type="button">Phone / Tablet</button>
+        <button id="enju-controls-desktop" type="button">Laptop / PC</button>
+      </div>
+      <div id="unity-warning"> </div>
+      <div id="unity-footer">
+        <div id="unity-webgl-logo"></div>
+        <div id="unity-fullscreen-button"></div>
+        <div id="unity-build-title">ENJU_ONLINE</div>
+      </div>
+    </div>
+    <script>
+
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingBar = document.querySelector("#unity-loading-bar");
+      var progressBarFull = document.querySelector("#unity-progress-bar-full");
+      var fullscreenButton = document.querySelector("#unity-fullscreen-button");
+      var warningBanner = document.querySelector("#unity-warning");
+
+      // Unity calls this to show a message on the page. Its own version was a plain yellow or red bar with technical text,
+      // which is alarming. Here an error becomes a calm box with friendly words and a Retry button, and warnings are not
+      // shown at all. The technical text goes to the console for us.
+      function unityShowBanner(msg, type) {
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.className = 'enju-banner';
+        if (type == 'error') {
+          console.log('[Unity message] ' + msg);
+          var text = document.createElement('div');
+          text.textContent = 'Something didn\u2019t load properly. Let\u2019s try again.';
+          var retry = document.createElement('button');
+          retry.type = 'button';
+          retry.className = 'enju-retry';
+          retry.innerHTML = document.querySelector('#unity-retry').innerHTML;
+          retry.onclick = function () { startOver(true); };
+          div.appendChild(text);
+          div.appendChild(retry);
+          warningBanner.appendChild(div);
+        } else {
+          // Unity's warnings are technical notes for developers (for example about how the files are served), not
+          // something a visitor can act on, so they go to the console only and nothing is shown on the page.
+          console.log('[Unity message] ' + msg);
+        }
+        updateBannerVisibility();
+      }
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/desktop.loader.js";
+      var config = {
+        dataUrl: buildUrl + "/3f11f81bccee86563f069c3bfa9f393f.data.br",
+        frameworkUrl: buildUrl + "/112028a34b4768d401a3f635661eb3a5.js.br",
+        codeUrl: buildUrl + "/ae472aa5ee89fa77c4c2b810aa9a4c0b.wasm.br",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "NajumasHouse",
+        productName: "ENJU_ONLINE",
+        productVersion: "0.1.0",
+        showBanner: unityShowBanner,
+      };
+
+      // How sharp the game is drawn on a phone. Phones have very many tiny pixels and modest graphics chips, so the
+      // game is drawn with fewer pixels than the screen has. Measured on a 2017 phone: 1 = about 10 frames per second,
+      // 1.5 = about 6, full resolution (3) = under 2. Add ?dpr=1.5 to the page address to try another value.
+      //
+      // Stronger phones get a sharper picture. The size is chosen once, here, because changing the canvas later
+      // blanks the screen on phones; the game then lowers or raises how much it draws inside that canvas
+      // (AdaptiveQuality) if it runs too slowly or has room to spare.
+      //   Apple phones and tablets, and the newest Android chips : 2
+      //   Recent mid-range Android chips                         : 1.5
+      //   Everything older or unknown                            : 1
+      function graphicsChipName() {
+        try {
+          var probe = document.createElement("canvas");
+          var gl = probe.getContext("webgl2") || probe.getContext("webgl");
+          var info = gl && gl.getExtension("WEBGL_debug_renderer_info");
+          var name = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : "";
+          var lose = gl && gl.getExtension("WEBGL_lose_context");
+          if (lose) lose.loseContext();
+          return name;
+        } catch (e) { return ""; }
+      }
+
+      function suggestedPhoneDevicePixelRatio() {
+        if (navigator.deviceMemory && navigator.deviceMemory < 4) return 1;
+
+        var isApple = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        var chip = graphicsChipName();
+        if (isApple || /Apple/i.test(chip)) return 2;
+
+        var adreno = /Adreno.*?(\d{3})/i.exec(chip);
+        if (adreno) { var a = parseInt(adreno[1], 10); return a >= 730 ? 2 : (a >= 640 ? 1.5 : 1); }
+        var mali = /Mali-G(\d+)/i.exec(chip);
+        if (mali) { var m = parseInt(mali[1], 10); return m >= 78 ? 2 : (m >= 57 ? 1.5 : 1); }
+        return 1;
+      }
+
+      // iPads ask for the desktop version of pages, so they are told apart by being a touch screen on a "Mac".
+      var isPhoneOrTablet = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+      // Which controls to use: the visitor's own choice (the buttons in the corner, or ?controls=touch / ?controls=desktop
+      // in the address, which a website embedding the game can set), otherwise the device decides. The game reads
+      // window.enjuControls: "touch", "desktop", or "" for "decide for me".
+      var chosenControls = new URLSearchParams(window.location.search).get("controls");
+      if (chosenControls !== "touch" && chosenControls !== "desktop") {
+        chosenControls = "";
+        try {
+          var savedControls = window.localStorage.getItem("enjuControls");
+          if (savedControls === "touch" || savedControls === "desktop") chosenControls = savedControls;
+        } catch (e) {}
+      }
+      window.enjuControls = chosenControls;
+      var activeControls = chosenControls || (isPhoneOrTablet ? "touch" : "desktop");
+
+      var controlsTouchButton = document.querySelector("#enju-controls-touch");
+      var controlsDesktopButton = document.querySelector("#enju-controls-desktop");
+      (activeControls === "touch" ? controlsTouchButton : controlsDesktopButton).classList.add("active");
+      function chooseControls(mode) {
+        if (mode === activeControls) return;
+        try { window.localStorage.setItem("enjuControls", mode); } catch (e) {}
+        // Until the game has read the choice (it does so when the scene starts) the switch is instant and needs no reload.
+        if (!window.enjuModeRead) {
+          window.enjuControls = mode;
+          activeControls = mode;
+          controlsTouchButton.classList.toggle("active", mode === "touch");
+          controlsDesktopButton.classList.toggle("active", mode === "desktop");
+          if (window.enjuShowTips) window.enjuShowTips();
+          return;
+        }
+        var params = new URLSearchParams(window.location.search);
+        params.set("controls", mode);
+        window.location.search = params.toString(); // reloads; the files are already cached, so this is quick
+      }
+      controlsTouchButton.onclick = function () { chooseControls("touch"); };
+      controlsDesktopButton.onclick = function () { chooseControls("desktop"); };
+
+      var mobileDevicePixelRatio = 1;
+      var requested = parseFloat(new URLSearchParams(window.location.search).get("dpr"));
+      if (requested > 0) mobileDevicePixelRatio = requested;
+      else if (isPhoneOrTablet) mobileDevicePixelRatio = suggestedPhoneDevicePixelRatio();
+
+      if (isPhoneOrTablet) {
+        config.devicePixelRatio = Math.min(mobileDevicePixelRatio, window.devicePixelRatio || 1);
+
+        // Whenever the page changes size, Unity recreates its drawing surface, and on a phone that leaves the picture
+        // black for good. It happens when the phone is turned, and when the browser bar slides in or out (tested on
+        // Chrome for Android). So Unity is told not to follow the page size: the surface keeps the size it started
+        // with and the page stretches it to fit, which is invisible for the small height changes of the browser bar.
+        // Turning the phone changes the shape too much for that, so then the page reloads cleanly instead.
+        config.matchWebGLToCanvasSize = false;
+        canvas.width = Math.round(window.innerWidth * config.devicePixelRatio);
+        canvas.height = Math.round(window.innerHeight * config.devicePixelRatio);
+        var startedPortrait = window.innerHeight > window.innerWidth;
+        window.addEventListener("resize", function () {
+          if ((window.innerHeight > window.innerWidth) !== startedPortrait) {
+            setTimeout(function () { window.location.reload(); }, 300);
+          }
+        });
+      }
+
+      // When the mouse is released (Esc), make sure the pointer is drawn again over the game. Unity hides it while the
+      // mouse is locked, and the page should not leave it hidden.
+      // It also tells the game, because Unity does not always notice when the browser takes the mouse back (Esc), and the
+      // "Click to Continue" screen has to appear then.
+      document.addEventListener("pointerlockchange", function () {
+        var locked = document.pointerLockElement === canvas;
+        canvas.style.cursor = locked ? "none" : "default";
+        if (!locked && window.enjuUnity) {
+          try { window.enjuUnity.SendMessage("ExperienceFlow", "BrowserReleasedMouse"); } catch (e) {}
+        }
+      });
+
+      // Scrolling over the game must not scroll or zoom the page around it: the wheel walks forward and back in the game.
+      // The scrolling is counted here (scrolling away from you is forward, a positive number) and the game collects it:
+      // Unity's own scroll reading can stay stuck on its last value until the mouse moves.
+      canvas.addEventListener("wheel", function (e) {
+        e.preventDefault();
+        var notches = e.deltaMode === 1 ? e.deltaY / 3 : (e.deltaMode === 2 ? e.deltaY * 10 : e.deltaY / 100);
+        window.enjuScroll = (window.enjuScroll || 0) - notches;
+      }, { passive: false });
+
+      // ----- The loading page.
+      // While the game loads, short messages come one at a time, five seconds each: staged messages mixed with tips. They are
+      // changed by a CSS animation, not by a timer in this script, because the browser is too busy to run timers while the
+      // game unpacks itself (that used to leave one message stuck on screen for a long time); animations carry on regardless.
+      // The eight messages take turns in a fixed order, round and round (the keyframes in style.css assume eight).
+      // If the connection drops, a friendly message replaces them and the page keeps trying.
+      var subtitle = document.querySelector("#unity-loading-subtitle");
+      var barEmpty = document.querySelector("#unity-progress-bar-empty");
+      var usingTouch = activeControls === "touch";
+
+      var stagedMessages = ["Opening the gates…", "Gathering the instruments…", "Sweeping the compound…", "Framing the portraits…"];
+      var tips = [
+        usingTouch ? "Move your phone to look around." : "Move your mouse to look around.",
+        usingTouch ? "Press the Move button to walk around." : "Use the arrow keys, or scroll, to walk around.",
+        usingTouch ? "Tap a king's portrait to read his story." : "Click a king's portrait to read his story.",
+        "Play the instruments in the compound."
+      ];
+      var firstRound = [stagedMessages[0], tips[0], stagedMessages[1], tips[1], stagedMessages[2], tips[2], stagedMessages[3], tips[3]];
+      var networkMessage = "Hmm...Ka Network\u2014 let's try again";
+      var secondsPerMessage = 5;
+
+      subtitle.textContent = "";
+      subtitle.style.setProperty("--cycle", (firstRound.length * secondsPerMessage) + "s");
+      firstRound.forEach(function (text, i) {
+        var line = document.createElement("span");
+        line.className = "enju-msg";
+        line.textContent = text;
+        // a negative delay starts each message part-way round the cycle, so every animation is already running from the first moment
+        // (a positive delay with a fill mode is something Safari on iPhone seems not to run on the graphics side)
+        line.style.animationDelay = (i * secondsPerMessage - firstRound.length * secondsPerMessage) + "s";
+        subtitle.appendChild(line);
+      });
+      // the tips follow the controls chosen with the buttons, even when that changes while the page is loading
+      window.enjuShowTips = function () {
+        var touch = activeControls === "touch";
+        var texts = {
+          1: touch ? "Move your phone to look around." : "Move your mouse to look around.",
+          3: touch ? "Press the Move button to walk around." : "Use the arrow keys, or scroll, to walk around.",
+          5: touch ? "Tap a king's portrait to read his story." : "Click a king's portrait to read his story."
+        };
+        for (var i in texts) if (subtitle.children[i]) subtitle.children[i].textContent = texts[i];
+      };
+      var networkLine = document.createElement("span");
+      networkLine.className = "enju-msg-network";
+      networkLine.textContent = networkMessage;
+      subtitle.appendChild(networkLine);
+
+      // the network message takes the place of the rotating ones
+      function holdMessage(text) {
+        networkLine.textContent = text;
+        subtitle.classList.add("network");
+      }
+
+      // ----- Network trouble.
+      // Unity's loader does not tell the page when a download fails: it only writes "Failed to download file…" to the log and
+      // then waits for ever. So the page listens for those log lines, and for the browser saying it is offline. When that
+      // happens it waits a couple of seconds and checks whether the server can be reached. If it can (a hiccup) the page
+      // quietly starts over. If it can't, the friendly message and the "Retry" button appear, and the page keeps checking
+      // every few seconds and starts over by itself once the server answers. It starts over at most a few times in a row, so
+      // a failure that is not the network can't make it reload for ever.
+      var retryButton = document.querySelector("#unity-retry");
+      var loadingFinished = false;
+      var failureHandled = false;
+      var maxAutomaticRestarts = 3;
+
+      function restartsSoFar() {
+        try { return parseInt(window.sessionStorage.getItem("enjuRestarts") || "0", 10); } catch (e) { return 0; }
+      }
+      function rememberRestarts(count) {
+        try { window.sessionStorage.setItem("enjuRestarts", String(count)); } catch (e) {}
+      }
+      function startOver(askedByVisitor) {
+        rememberRestarts(askedByVisitor ? 0 : restartsSoFar() + 1);
+        window.location.reload();
+      }
+      function serverReachable() {
+        return fetch(window.location.pathname + "?probe=" + Date.now(), { method: "HEAD", cache: "no-store" })
+          .then(function (response) { return response.ok; }, function () { return false; });
+      }
+      function startOverIfServerAnswers(askedByVisitor) {
+        // once the game is up the page never starts over by itself (that would throw the visitor out of the tour)
+        if (loadingFinished && !askedByVisitor) return;
+        serverReachable().then(function (reachable) {
+          if (reachable && (askedByVisitor || restartsSoFar() < maxAutomaticRestarts)) startOver(askedByVisitor);
+        });
+      }
+
+      function showNetworkTrouble() {
+        holdMessage(networkMessage);
+        retryButton.classList.add("visible");
+        setInterval(function () { startOverIfServerAnswers(false); }, 5000);
+        window.addEventListener("online", function () { startOverIfServerAnswers(false); });
+      }
+      retryButton.onclick = function () { startOverIfServerAnswers(true); };
+
+      function loadFailed() {
+        if (loadingFinished || failureHandled) return;
+        failureHandled = true;
+        setTimeout(function () {
+          serverReachable().then(function (reachable) {
+            if (reachable && restartsSoFar() < maxAutomaticRestarts) startOver(false);
+            else showNetworkTrouble();
+          });
+        }, 2000);
+      }
+
+      var realConsoleError = console.error;
+      console.error = function () {
+        try {
+          var text = Array.prototype.join.call(arguments, " ");
+          if (/Failed to download file|failed to asynchronously prepare wasm|both async and sync fetching of the wasm failed/i.test(text)) loadFailed();
+        } catch (e) {}
+        return realConsoleError.apply(console, arguments);
+      };
+      window.addEventListener("offline", loadFailed);
+
+      function startGame() {
+        progressBarFull.style.width = "0%";
+        return createUnityInstance(canvas, config, function (progress) {
+          progressBarFull.style.width = 100 * progress + "%";
+        }).catch(function (error) {
+          if (/fetch|network|download/i.test(String(error))) { loadFailed(); return new Promise(function () {}); }
+          throw error;
+        });
+      }
+
+      // The game is ready: the page fades away and Unity's own screen follows.
+      function finishLoading() {
+        loadingFinished = true;
+        retryButton.classList.remove("visible");
+        rememberRestarts(0);
+        loadingBar.classList.add("done");
+        setTimeout(function () { loadingBar.style.display = "none"; }, 700);
+      }
+
+      loadingBar.style.display = "flex";
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        startGame().then((unityInstance) => {
+                window.enjuUnity = unityInstance;
+                finishLoading();
+                fullscreenButton.onclick = () => {
+                  unityInstance.SetFullscreen(1);
+                };
+              }).catch((message) => {
+                alert(message);
+              });
+            };
+
+      document.body.appendChild(script);
+
+    </script>
+  </body>
+</html>

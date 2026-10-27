@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no">
+    <title>ENJU</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: radial-gradient(ellipse at 50% 40%, #3a2a1a 0%, #1b120a 70%); color: #f0c060;
+        font-family: 'Noto Serif', Georgia, 'Times New Roman', serif; display: flex; align-items: center; justify-content: center; text-align: center }
+      h1 { font-size: clamp(40px, 12vmin, 96px); letter-spacing: 0.25em; padding-left: 0.25em; margin: 0; font-weight: normal }
+      a { color: #f0c060 }
+    </style>
+  </head>
+  <body>
+    <div>
+      <h1>ENJU</h1>
+      <noscript><p><a href="desktop/">Computer version</a> &middot; <a href="mobile/">Phone and tablet version</a></p></noscript>
+    </div>
+    <script>
+      // The game is built twice because phones and computers use different picture formats. This page sends each
+      // visitor to the right one. Anything after the address (for example ?dpr=1.5) is passed along.
+      // iPads ask for the desktop version of pages, so they are told apart by being a touch screen on a "Mac".
+      var phoneOrTablet = /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      window.location.replace((phoneOrTablet ? "mobile/" : "desktop/") + window.location.search + window.location.hash);
+    </script>
+  </body>
+</html>

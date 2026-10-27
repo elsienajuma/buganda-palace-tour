@@ -1,0 +1,69 @@
+/* ENJU Online page template: the game fills the whole window (or the box it is embedded in), on phones and computers. */
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; overscroll-behavior: none }
+
+/* "inset: 0" fills the visible area even when a phone's browser bar slides in and out ("height: 100%" can fall short) */
+#unity-container { position: fixed; inset: 0 }
+#unity-canvas { display: block; width: 100%; height: 100%; background: #231F20;
+  /* dragging a finger on the game must look around, not scroll or zoom the page */
+  touch-action: none; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; outline: none }
+
+/* Noto Serif (SIL Open Font License, see fonts/NotoSerif-OFL-LICENSE.txt), kept with the page so every device shows the same type. */
+@font-face { font-family: 'Noto Serif'; font-weight: 400; font-style: normal; font-display: swap; src: url('fonts/noto-serif-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD }
+@font-face { font-family: 'Noto Serif'; font-weight: 400; font-style: normal; font-display: swap; src: url('fonts/noto-serif-latin-ext-400-normal.woff2') format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF }
+@font-face { font-family: 'Noto Serif'; font-weight: 700; font-style: normal; font-display: swap; src: url('fonts/noto-serif-latin-700-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD }
+
+/* The loading page: covers the game until it is ready, then fades away. Change the colours, words and sizes here. */
+#unity-loading-bar { position: fixed; inset: 0; z-index: 3; display: none; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 40%, #3a2a1a 0%, #1b120a 70%); color: #f3e3c0; text-align: center;
+  font-family: 'Noto Serif', Georgia, 'Times New Roman', serif; transition: opacity 0.6s ease }
+#unity-loading-bar.done { opacity: 0; pointer-events: none }
+#unity-logo { width: auto; height: auto; background: none; font-size: clamp(28px, 7.5vmin, 64px); letter-spacing: 0.08em; padding: 0 5vw; color: #f0c060; line-height: 1.15 }
+#unity-loading-tagline { margin-top: 0.6em; font-size: clamp(13px, 2.8vmin, 20px); letter-spacing: 0.14em; opacity: 0.75 }
+#unity-loading-subtitle { position: relative; margin-top: 3em; min-height: 2.6em; width: min(80vw, 560px); font-size: clamp(15px, 3.4vmin, 24px); letter-spacing: 0.04em; opacity: 0.95 }
+/* The messages sit on top of each other and take turns. Each one is visible for its own eighth of the cycle (the cycle length
+   is set from the page: eight messages, five seconds each). Fading opacity runs on the browser's own animation thread, so it
+   carries on even when the page's scripts are busy. */
+.enju-msg, .enju-msg-network { position: absolute; left: 0; right: 0; top: 0; opacity: 0 }
+.enju-msg { will-change: opacity; transform: translateZ(0); -webkit-animation: enju-msg-cycle var(--cycle, 40s) linear infinite; animation: enju-msg-cycle var(--cycle, 40s) linear infinite }
+@-webkit-keyframes enju-msg-cycle { 0% { opacity: 0 } 1.5% { opacity: 1 } 11% { opacity: 1 } 12.5% { opacity: 0 } 100% { opacity: 0 } }
+@keyframes enju-msg-cycle { 0% { opacity: 0 } 1.5% { opacity: 1 } 11% { opacity: 1 } 12.5% { opacity: 0 } 100% { opacity: 0 } }
+#unity-loading-subtitle.network .enju-msg { display: none }
+#unity-loading-subtitle.network .enju-msg-network { opacity: 1; transition: opacity 0.4s ease }
+/* the Retry button (on the loading page and in the error box): a soft gold outline. The loading page's one always takes up
+   its space so nothing jumps, and is only visible while the connection is down. */
+.enju-retry { display: inline-flex; align-items: center; gap: 0.5em; margin-top: 0.6em; padding: 0.55em 1.2em; font: inherit; font-size: clamp(13px, 2.8vmin, 18px);
+  color: #f3e3c0; background: transparent; border: 1px solid rgba(240, 192, 96, 0.65); border-radius: 999px; cursor: pointer; -webkit-tap-highlight-color: transparent }
+.enju-retry:active { background: rgba(240, 192, 96, 0.25) }
+#unity-retry { visibility: hidden }
+#unity-retry.visible { visibility: visible }
+#unity-progress-bar-empty { width: min(60vw, 320px); height: 4px; margin: 14px 0 12px; background: rgba(240, 192, 96, 0.2); border-radius: 2px; overflow: hidden }
+#unity-progress-bar-full { width: 0%; height: 100%; background: #f0c060; border-radius: 2px }
+/* while the percentage is unknown, and while the game starts: a moving shimmer along the whole bar */
+#unity-progress-bar-empty.busy #unity-progress-bar-full { width: 100% !important; background: linear-gradient(90deg, #8a6a2a 0%, #f6d98a 50%, #8a6a2a 100%); background-size: 200% 100%; animation: enju-shimmer 1.3s linear infinite }
+@keyframes enju-shimmer { from { background-position: 200% 0 } to { background-position: 0 0 } }
+/* the percentage is not shown: the bar and the messages are enough */
+#unity-loading-percent { display: none }
+
+/* the controls choice: always on the page, above the loading screen and the game */
+#enju-controls { position: fixed; left: 8px; bottom: 8px; z-index: 5; display: flex; border-radius: 6px; overflow: hidden; background: rgba(0, 0, 0, 0.5); font: 11px/1 sans-serif }
+#enju-controls button { padding: 8px 9px; color: #f3e3c0; background: transparent; border: 0; cursor: pointer; font: inherit; -webkit-tap-highlight-color: transparent }
+#enju-controls button.active { background: rgba(240, 192, 96, 0.92); color: #1b120a; font-weight: bold; cursor: default }
+/* on a narrow (phone-width) screen the pill is made smaller still, so it stays clear of the Move button in the middle */
+@media (max-width: 480px) {
+  #enju-controls { font-size: 9.5px }
+  #enju-controls button { padding: 7px 7px }
+}
+
+/* the footer bar is gone; only a small fullscreen button floats in the corner */
+#unity-footer { position: static }
+#unity-webgl-logo, #unity-build-title { display: none }
+#unity-fullscreen-button { position: fixed; right: 10px; bottom: 10px; z-index: 2; cursor: pointer; width: 38px; height: 38px; opacity: 0.7;
+  background: url('fullscreen-button.png') no-repeat center rgba(0, 0, 0, 0.35); border-radius: 8px }
+
+/* messages from the game, in the same calm style as the loading page */
+#unity-warning { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 6; display: none; width: max-content; max-width: 86vw; text-align: center }
+.enju-banner { margin-top: 8px; padding: 14px 20px; border-radius: 14px; border: 1px solid rgba(240, 192, 96, 0.55); background: rgba(27, 18, 10, 0.94); color: #f3e3c0;
+  font-family: 'Noto Serif', Georgia, 'Times New Roman', serif; font-size: clamp(14px, 3vmin, 18px); line-height: 1.4; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45) }
