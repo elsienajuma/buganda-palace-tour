@@ -345,7 +345,16 @@
         var projected = lastProgress > 0 ? seconds / lastProgress : Infinity;
         if (seconds >= 15 && projected > 40 && !slowMessageShown) {
           slowMessageShown = true;
-          holdMessage("Slow connection… just a moment. It's quicker next time.");
+          // say how much is being downloaded, so the wait is not alarming: the sizes of the three big files are asked for
+          // (a small request that only reads their headers) and added up
+          Promise.all([config.dataUrl, config.frameworkUrl, config.codeUrl].map(function (url) {
+            return fetch(url, { method: "HEAD" }).then(function (response) {
+              return parseInt(response.headers.get("content-length") || "0", 10) || 0;
+            }).catch(function () { return 0; });
+          })).then(function (sizes) {
+            var total = sizes.reduce(function (sum, size) { return sum + size; }, 0);
+            holdMessage("Slow connection – still downloading" + (total > 0 ? " (" + Math.round(total / 1000000) + " MB)" : ""));
+          });
         }
       }, 2000);
 
