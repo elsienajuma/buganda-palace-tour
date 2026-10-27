@@ -333,9 +333,26 @@
       };
       window.addEventListener("offline", loadFailed);
 
+      // A slow connection is not a failure, so nothing is restarted: the rotating messages give way to a friendly one that says
+      // the game is still on its way. It is judged from the download only (progress under 0.85): on a fast connection the long
+      // wait while the game unpacks itself must not be mistaken for a slow network.
+      var downloadStartedAt = Date.now();
+      var lastProgress = 0;
+      var slowMessageShown = false;
+      var slowCheck = setInterval(function () {
+        if (loadingFinished || lastProgress >= 0.85) { if (loadingFinished || slowMessageShown) clearInterval(slowCheck); return; }
+        var seconds = (Date.now() - downloadStartedAt) / 1000;
+        var projected = lastProgress > 0 ? seconds / lastProgress : Infinity;
+        if (seconds >= 10 && projected > 40 && !slowMessageShown) {
+          slowMessageShown = true;
+          holdMessage("Slow connection… hang tight. It's quicker next time.");
+        }
+      }, 2000);
+
       function startGame() {
         progressBarFull.style.width = "0%";
         return createUnityInstance(canvas, config, function (progress) {
+          lastProgress = progress;
           progressBarFull.style.width = 100 * progress + "%";
         }).catch(function (error) {
           if (/fetch|network|download/i.test(String(error))) { loadFailed(); return new Promise(function () {}); }
