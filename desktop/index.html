@@ -81,9 +81,9 @@
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/desktop.loader.js";
       var config = {
-        dataUrl: buildUrl + "/24139aea84e50f6c8e989e2b0a1b4359.data.br",
-        frameworkUrl: buildUrl + "/715f53ffee5ad8a865acce522612f1c4.js.br",
-        codeUrl: buildUrl + "/1d28cfaa3e746662d557081edc1360ad.wasm.br",
+        dataUrl: buildUrl + "/e4c33e56feeefb423799bc7ce28002bd.data.br",
+        frameworkUrl: buildUrl + "/b966ae13baf71ef2c3d8097287c650bc.js.br",
+        codeUrl: buildUrl + "/aac1035147f96aaf80cb0572d169fe2b.wasm.br",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "NajumasHouse",
         productName: "ENJU_ONLINE",
@@ -206,6 +206,16 @@
         if (!locked && window.enjuUnity) {
           try { window.enjuUnity.SendMessage("ExperienceFlow", "BrowserReleasedMouse"); } catch (e) {}
         }
+      });
+
+      // The page around the game (the website) can ask for an open portrait or instrument close-up to close, for its own X
+      // button: { enju: "close-closeup" }. Only the page that holds the game is listened to, and nothing happens unless a
+      // close-up is really open. The game answers with its usual { enju: "closeup", open: false } message once it has closed.
+      window.addEventListener("message", function (e) {
+        if (e.source !== window.parent) return;
+        if (!e.data || e.data.enju !== "close-closeup") return;
+        if (!window.enjuCloseUpOpen || !window.enjuUnity) return;
+        try { window.enjuUnity.SendMessage("ExperienceFlow", "BrowserCloseCloseUp"); } catch (err) {}
       });
 
       // Scrolling over the game must not scroll or zoom the page around it: the wheel walks forward and back in the game.
